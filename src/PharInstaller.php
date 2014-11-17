@@ -21,8 +21,12 @@ class PharInstaller extends LibraryInstaller implements InstallerInterface
         );
     }
 
-    protected function _getPharPackageInfo($package)
+    protected function _getPharPackageInfo(PackageInterface $package, $absoluteLink = false)
     {
+        if (empty($this->binDir)) {
+            $this->initializeBinDir();
+        }
+
         $binPath = '';
         $bin     = '';
         $link    = '';
@@ -34,6 +38,11 @@ class PharInstaller extends LibraryInstaller implements InstallerInterface
 
             $binPath = realpath(reset($phars));
             $bin = isset($packageExtra['bin-name']) ? $packageExtra['bin-name'] : basename($binPath);
+
+            if ($absoluteLink) {
+                $this->initializeBinDir();
+            }
+
             $link = $this->binDir . '/' . $bin;
         }
 
@@ -49,12 +58,10 @@ class PharInstaller extends LibraryInstaller implements InstallerInterface
         parent::installBinaries($package);
 
         // Extract the components of the returned array into PHP variables.
-        extract($this->_getPharPackageInfo($package));
+        extract($this->_getPharPackageInfo($package, true));
 
         // Install link
         if (!empty($binPath)) {
-            $this->initializeBinDir();
-
             if (file_exists($link)) {
                 if (is_link($link)) {
                     // likely leftover from a previous install, make sure
@@ -65,6 +72,7 @@ class PharInstaller extends LibraryInstaller implements InstallerInterface
                 $this->io->write('    Skipped installation of bin '.$bin.' for package '.$package->getName().': name conflicts with an existing file');
                 return;
             }
+
             if (defined('PHP_WINDOWS_VERSION_BUILD')) {
                 // add unixy support for cygwin and similar environments
                 if ('.bat' !== substr($binPath, -4)) {
@@ -93,6 +101,7 @@ class PharInstaller extends LibraryInstaller implements InstallerInterface
                 }
                 chdir($cwd);
             }
+
             @chmod($link, 0777 & ~umask());
         }
     }
